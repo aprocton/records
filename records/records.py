@@ -6,14 +6,14 @@ import numpy as np
 class Records:
     """
     Class to query GBIF for all records matching query in given year interval
-    
+
     Parameters
     ----------
     q: str
         Taxon name for query
     interval: tuple
         Range of years (min, max) to return results for.
-    
+
 
     Attributes:
     -----------
@@ -45,24 +45,26 @@ class Records:
     def sdf(self):
         """
         Return a copy of the current .df dataframe selecting only the three
-        most generally relevant columns: species, year, and stateProvince. 
+        most generally relevant columns: species, year, and stateProvince.
         This is only meant for viewing and will raise a warning if you try to
-        modify it since it is a copy, and thus you would be setting values on 
+        modify it since it is a copy, and thus you would be setting values on
         a selection of a selection. See pandas docs in the warning for detalis.
         """
         return self.df[["species", "year", "country", "stateProvince"]]
 
     def _get_all_records(self):
         "iterate requests and concatenate responses until end of records"
-        baseurl = "http://api.gbif.org/v1/occurrence/search?"
         data = []
 
         while 1:
             # make request and store results
             res = requests.get(
-                url=baseurl,
+                url=self.baseurl,
                 params=self.params,
             )
+
+            # check for errors
+            res.raise_for_status()
 
             # increment counter
             self.params["offset"] = str(int(self.params["offset"]) + 300)
@@ -80,27 +82,27 @@ class Records:
 
 class Epochs:
     """
-    Returns an Epochs class instance that includes GBIF occurrence records 
-    and stores an extra label with each query that includes the interval 
-    (epoch) during which those records were collected, and returns all 
-    records in a sorted pandas dataframe. 
+    Returns an Epochs class instance that includes GBIF occurrence records
+    and stores an extra label with each query that includes the interval
+    (epoch) during which those records were collected, and returns all
+    records in a sorted pandas dataframe.
     Parameters:
     -----------
     q: str
-        Query taxonomic name. 
+        Query taxonomic name.
     start: int
-        Earliest year from which to search for records. 
+        Earliest year from which to search for records.
     end: int
-        Latest year from which to search for records. 
+        Latest year from which to search for records.
     epochsize: int
         of years to return results for. Should be (min, max) tuple.
     Attributes:
     -----------
     df: Pandas DataFrame with returned records.
     sdf: A view of the 'df' DataFrame selecting only four relevant columns.
-    """ 
+    """
     def __init__(self, q, start, end, epochsize, **kwargs):
-        
+
         # make range of epochs
         epochs = range(start, end, epochsize)
 
@@ -113,7 +115,7 @@ class Epochs:
         for epoch in rdicts:
             rdicts[epoch].df["epoch"] = epoch
 
-        # if rdicts, then build dataframe, otherwise skip it. 
+        # if rdicts, then build dataframe, otherwise skip it.
         if rdicts:
 
             # concatenate all dataframes into one
@@ -128,32 +130,29 @@ class Epochs:
         else:
             self.df = pd.DataFrame([])
 
-
     @property
     def sdf(self):
         """
         Return a copy of the current .df dataframe selecting only the three
-        most generally relevant columns: species, year, epoch, country, 
-        and stateProvince. 
+        most generally relevant columns: species, year, epoch, country,
+        and stateProvince.
         This is only meant for viewing and will raise a warning if you try to
-        modify it since it is a copy, and thus you would be setting values on 
+        modify it since it is a copy, and thus you would be setting values on
         a selection of a selection. See pandas docs in the warning for detalis.
         """
         return self.df[
             ["species", "year", "epoch", "country", "stateProvince"]]
 
-
-
     def simpsons_diversity(self, by):
         """
-        Calculates simpon's diversity index: the probability that any two 
+        Calculates simpon's diversity index: the probability that any two
         sampled individuals are the same species. Enter a key for groupby
         as a list of single or multiple keys.
         Parameters
         -----------
         by: str
-            A column name used by .groupby to group samples prior to 
-            calculating simpson's diversity. For example, enter 
+            A column name used by .groupby to group samples prior to
+            calculating simpson's diversity. For example, enter
         """
         # group on 'by' keyword, and exclude records missing data for 'by'.
         # and then count species in each group and calculate simp's div.
@@ -167,7 +166,6 @@ class Epochs:
         # set zero values of simpson's diversity to nan
         data[data == 0] = np.nan
         return data
-
 
 
 # utility functions
